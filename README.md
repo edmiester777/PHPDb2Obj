@@ -3,7 +3,8 @@
 PHP library that helps with secure MySQL database connections and queries by encapsulating a table into an object.
 
 ###### Examples
-Say you have a database with the name "test_table" has the following columns:
+Say you have a database with the name "test_table" has the following columns
+
 Column Name | Type | Properties
 ----------- | ---- | ----------
 id | BIGINT(11) | UNSIGNED PRIMARY KEY AUTO_INCREMENT
@@ -16,6 +17,8 @@ relation_id | BIGINT(11) | UNSIGNED
 **Setup**
 We have to create a class to encapsulate this table. We can import
 DatabaseTable.class.php to start the setup process.
+
+    ```php
     <?php
     require_once dirname(__FILE__).'/DatabaseTable.class.php';
     class TestTable extends DatabaseTable{
@@ -74,21 +77,26 @@ DatabaseTable.class.php to start the setup process.
         }
     }
     ?>
+    ```
 ============================
 **Loading Columns:**
 The first example is loading with a unique id.
+
     <?php
     $test = TestTable::FromUniqueId(4);
     ?>
 Next we will load from a custom row
+
     <?php
     $test = TestTable::FromColumn("username", "edmiester777");
     ?>
 Now we can simply load all rows into a TestTable array.
+
     <?php
     $tests = TestTable::LoadAllRows();
     ?>
 Custom queries can be performed with the Where function
+
     <?php
     $test = TestTable::Where(
         "username = :username AND email = :email",
@@ -102,6 +110,7 @@ Custom queries can be performed with the Where function
 ==============================
 **Accessing Data**
 Getting data from a loaded row can be done in several ways
+
     <?php
     $test = TestTable::FromUniqueId(4);
     // ways to get data
@@ -111,6 +120,7 @@ Getting data from a loaded row can be done in several ways
     ?>
 
 **Mutating Data**
+
     <?php
     $test = new TestTable();
     $test->setColumnValue("username", "edmiester777);
@@ -119,6 +129,7 @@ Getting data from a loaded row can be done in several ways
     ?>
 
 **Database Functions**
+
     <?php
     // delete row from database
     $test->delete();
