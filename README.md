@@ -16,6 +16,7 @@ relation_id | BIGINT(11) | UNSIGNED
 **Setup**
 We have to create a class to encapsulate this table. We can import
 DatabaseTable.class.php to start the setup process.
+    <?php
     require_once dirname(__FILE__).'/DatabaseTable.class.php';
     class TestTable extends DatabaseTable{
         public function __construct(){
@@ -72,15 +73,23 @@ DatabaseTable.class.php to start the setup process.
             $this->addColumnElement("relation_id", 0, "TestTable", "id"); // adding a relation to another row in database
         }
     }
+    ?>
 ============================
 **Loading Columns:**
 The first example is loading with a unique id.
+    <?php
     $test = TestTable::FromUniqueId(4);
+    ?>
 Next we will load from a custom row
+    <?php
     $test = TestTable::FromColumn("username", "edmiester777");
+    ?>
 Now we can simply load all rows into a TestTable array.
+    <?php
     $tests = TestTable::LoadAllRows();
+    ?>
 Custom queries can be performed with the Where function
+    <?php
     $test = TestTable::Where(
         "username = :username AND email = :email",
         array(
@@ -89,22 +98,28 @@ Custom queries can be performed with the Where function
         )
     );
     // returns an array of TestTables where username = "edmiester777" and email = "example@email.com"
+    ?>
 ==============================
 **Accessing Data**
 Getting data from a loaded row can be done in several ways
+    <?php
     $test = TestTable::FromUniqueId(4);
     // ways to get data
     $test->getColumnValue("id");
     $test->getId(); // method is parsed with regular expressions and returns the matching column to method name, therefore you can use case insensitive methods.
     $test->id;
+    ?>
 
 **Mutating Data**
+    <?php
     $test = new TestTable();
     $test->setColumnValue("username", "edmiester777);
     $test->setEmail("example@email.com");
     $test->age = 45;
+    ?>
 
 **Database Functions**
+    <?php
     // delete row from database
     $test->delete();
     // insert row to database (unique id will update after insert)
@@ -113,5 +128,6 @@ Getting data from a loaded row can be done in several ways
     $test->update();
     // update single column
     $test->updateSingleColumn("username");
+    ?>
 
 Now you're off, go and test out PHPDb2Obj.
