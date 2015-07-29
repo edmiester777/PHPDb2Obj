@@ -108,16 +108,16 @@ Getting data from a loaded row can be done in several ways
 ```php
 $test = TestTable::FromUniqueId(4);
 // ways to get data
-$test->getColumnValue("id");
-$test->getId(); // method is parsed with regular expressions and returns the matching column to method name, therefore you can use case insensitive methods.
-$test->id;
+$test->getColumnValue("username");
+$test->getUsername(); // method is parsed with regular expressions and returns the matching column to method name, therefore you can use case insensitive methods.
+$test->username;
 ```
-**Mutating Data**
+**Mutating Data** Can be done in several ways.
 ```php
 $test = new TestTable();
 $test->setColumnValue("username", "edmiester777);
-$test->setEmail("example@email.com");
-$test->age = 45;
+$test->setUsername("edmiester777");
+$test->username = "edmiester777";
 ```
 
 **Database Functions**
@@ -130,6 +130,15 @@ $test->insert();
 $test->update();
 // update single column
 $test->updateSingleColumn("username");
+```
+
+**Relations**
+Relations occur when the value of the column represent the value of a different row in the database. This row could be in the same table, or another one. We can access these variables using a bit of magic.
+```php
+$test = TestTable::FromUniqueId(4);
+$relation = $test->getColumnRelation("relation_id");
+// $relation = TestTable if row exists, NULL if not.
+echo "Relational username = {$relation->username}";
 ```
 
 Now you're off, go and test out PHPDb2Obj.
