@@ -37,14 +37,9 @@ class DatabaseConnector{
                $db_user,
                $db_pass,
                $db_host;
-        // handling errors
-        $errOpt = _DEBUG ? array(
-            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-        ) : array();
         // trying to make PDO connection
         try{
-            $this->pdo = new PDO("mysql:host={$db_host};dbname={$db_name}", $db_user, $db_pass, $errOpt);
+            $this->pdo = new PDO("mysql:host={$db_host};dbname={$db_name}", $db_user, $db_pass);
         }
         catch(Exception $e){
             throw $e;
