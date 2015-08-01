@@ -371,13 +371,7 @@ abstract class DatabaseTable{
      */
     public function delete(){
         global $dbConn;
-        $uniq_id = NULL;
-        foreach($this->columns as $key => $col){
-            if($col->getProperties() & DatabaseColumnElement::COLUMN_UNIQUE_ID){
-                // column is registered as the unique id
-                $uniq_id = $col;
-            }
-        }
+        $uniq_id = $this->getUniqueColumnElement();
         if($uniq_id == NULL){
             throw new Exception("Could not locate a column with the COLUMN_UNIQUE_ID property");
         }
