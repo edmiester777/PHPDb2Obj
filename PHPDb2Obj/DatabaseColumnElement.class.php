@@ -145,7 +145,10 @@ class DatabaseColumnElement{
      * @param bool $ignore_properties Ignore properties and use default set value
      */
     public function setValue($val, $ignore_properties = false){
-        if(!$ignore_properties && $this->getProperties() & DatabaseColumnElement::COLUMN_SERIALIZE_VALUE && $this->value != NULL){
+        if(
+            !$ignore_properties &&
+            $this->getProperties() & DatabaseColumnElement::COLUMN_SERIALIZE_VALUE
+        ){
             $this->value = DatabaseColumnElement::SerializeArray($val);
         }
         else{
