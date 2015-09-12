@@ -3,7 +3,7 @@
 PHP library that helps with secure MySQL database connections and queries by encapsulating a table into an object.
 
 ###### Examples
-Say you have a database with the name "test_table" has the following columns
+Say you have a database with the name "test_table", and it has the following columns
 
 Column Name | Type | Properties
 ----------: | ---- | ----------
