@@ -90,6 +90,14 @@ Now we can simply load all rows into a TestTable array.
 ```php
 $tests = TestTable::LoadAllRows();
 ```
+Or we can load our database row by row in order to conserver resources.
+```php
+TestTable::StartLoadAllRowsLinear();
+while(($test = TestTable::GetNextRow()) != NULL){
+    work...
+}
+TestTable::EndLinearQuery();
+```
 Custom queries can be performed with the Where function
 ```php
 $test = TestTable::Where(
@@ -99,6 +107,11 @@ $test = TestTable::Where(
         ":email"    => "example@email.com"
     )
 );
+
+You can also access the count of rows very simply.
+```php
+$count = TestTable::Count();
+```
 // returns an array of TestTables where username = "edmiester777" and email = "example@email.com"
 ```
 ==============================

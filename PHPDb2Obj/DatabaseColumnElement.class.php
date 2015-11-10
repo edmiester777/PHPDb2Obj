@@ -189,8 +189,8 @@ class DatabaseColumnElement{
      * @param array $arr
      * @return string Serialized Array
      */
-    public static function SerializeArray(array $arr){
-        return base64_encode(json_encode($arr));
+    public static function SerializeArray($arr){
+        return is_array($arr) ? base64_encode(json_encode($arr)) : NULL;
     }
     
     /**
@@ -199,7 +199,7 @@ class DatabaseColumnElement{
      * @return array
      */
     public static function DeserializeArray($serialized_array){
-        return json_decode(base64_decode($serialized_array), true);
+        return is_string($serialized_array) ? json_decode(base64_decode($serialized_array), true) : NULL;
     }
 }
 ?>

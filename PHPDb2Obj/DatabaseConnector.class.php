@@ -22,7 +22,10 @@ require_once dirname(__FILE__).'/config.php';
  * and queries of a database.
  */
 class DatabaseConnector{
+    /** PDO Element for queries */
     private $pdo;
+    /** Stores prepared statements */
+    private $prepared;
 
     /**
      * Construct a DatabaseConnector with the global setup in config.
@@ -75,6 +78,50 @@ class DatabaseConnector{
             $val == NULL ? $prepare->bindParam($key, $val, PDO::PARAM_NULL) : $prepare->bindParam($key, $val);
         }
         return $prepare->execute() == 0 ? false : true;
+    }
+    
+    /**
+     * Begin the process of fetching mysql rows
+     * one by one (if RAM is an issue).
+     * @param type $sql SQL Statement
+     * @param type $params Parameters to be bound
+     * @return boolean Success
+     */
+    public function startLinearFetch($sql, $params=array()){
+        if($this->prepared != NULL)
+            $this->endLinearFetch();
+        if(empty($sql) || !$this->pdo)return false;
+        $this->prepared = $this->pdo->prepare($sql);
+        foreach($params as $key => &$val){
+            $val == NULL ? $this->prepared->bindParam($key, $val, PDO::PARAM_NULL) : $prepare->bindParam($key, $val);
+        }
+        return $this->prepared->execute() == 0 ? false : true;
+    }
+    
+    /**
+     * End the process of making a linear fetch.
+     */
+    public function endLinearFetch(){
+        $this->prepared = NULL;
+    }
+    
+    /**
+     * Check if this database connector has a linear
+     * fetch process started.
+     * @return boolean
+     */
+    public function getIsLinearFetchStarted(){
+        return $this->prepared != NULL;
+    }
+    
+    /**
+     * Get the next row in the linear fetch.
+     * @return array row
+     */
+    public function getNextRow(){
+        if($this->prepared == NULL)
+            return NULL;
+        return $this->prepared->fetch(PDO::FETCH_ASSOC);
     }
 
     /**

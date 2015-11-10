@@ -24,6 +24,7 @@ require_once dirname(__FILE__).'/DatabaseColumnElement.class.php';
  */
 abstract class DatabaseTable{
     private $table_name;
+    private $uniqueCol;
     private $columns;
     
     /**
@@ -113,25 +114,20 @@ abstract class DatabaseTable{
     }
     
     /**
+     * Get the column element representing
+     * the unique id column in database.
+     * @return DatabaseColumnElement
+     */
+    protected function getUniqueColumn(){
+        return $this->uniqueCol;
+    }
+    
+    /**
      * Get an array of the registered database column elements
      * @return DatabaseColumnElement[]
      */
     protected function getColumnElements(){
         return $this->columns;
-    }
-    
-    /**
-     * Get the DatabaseColumnElement that is registered as the unique column
-     * 
-     * @return DatabaseColumnElement Unique Element
-     */
-    protected function getUniqueColumnElement(){
-        foreach($this->columns as $column){
-            if($column->getProperties() & DatabaseColumnElement::COLUMN_UNIQUE_ID){
-                return $column;
-            }
-        }
-        return NULL;
     }
     
     /**
@@ -170,6 +166,14 @@ abstract class DatabaseTable{
     }
     
     /**
+     * Set the unique id column
+     * @param DatabaseColumnElement $col
+     */
+    protected function setUniqueColumn(DatabaseColumnElement $col){
+        $this->uniqueCol = $col;
+    }
+    
+    /**
      * Set the value of the column regardless of the properties registered to it
      * @param string $column_name Column Name
      * @param mixed $value Value
@@ -195,6 +199,18 @@ abstract class DatabaseTable{
             return;
         }
         $this->columns[$column_name]->setValue($value);
+    }
+    
+    /**
+     * Generate an associative array from this DatabaseTable
+     * @return array
+     */
+    public function toAssocArray(){
+        $arr = array();
+        foreach($this->columns as $col){
+            $arr[$col->getColumnName()] = $col->getValue();
+        }
+        return $arr;
     }
     
     /**
@@ -250,7 +266,7 @@ abstract class DatabaseTable{
      * @return bool success
      */
     public function loadFromUniqueID($id){
-        $uniq_col = $this->getUniqueColumnElement();
+        $uniq_col = $this->getUniqueColumn();
         if($uniq_col == NULL)
             return false;
         $uniq_col->setValue($id);
@@ -310,7 +326,7 @@ abstract class DatabaseTable{
         if(!isset($this->columns[$column_name]))
             return false;
         global $dbConn;
-        $uniq_id = $this->getUniqueColumnElement();
+        $uniq_id = $this->getUniqueColumn();
         $update_col = $this->columns[$column_name];
         if($update_col->getProperties() & DatabaseColumnElement::COLUMN_EXCLUDE_UPDATE)
             return false;
@@ -334,18 +350,16 @@ abstract class DatabaseTable{
      */
     public function insert(){
         global $dbConn;
-        $uniq_id = NULL;
+        $uniq_id = $this->getUniqueColumn();
         $column_names = array();
         $param_names = array();
         $valsArray = array();
         foreach($this->columns as $key => $col){
-            if($col->getProperties() & DatabaseColumnElement::COLUMN_UNIQUE_ID){
-                // column is registered as the unique id
-                $uniq_id = $col;
+            if($col->getValue() != NULL){
+                $column_names[]= $col->getColumnName();
+                $param_names[]= ":{$col->getColumnName()}";
+                $valsArray[":{$col->getColumnName()}"]= $col->getValue(true);
             }
-            $column_names[]= $col->getColumnName();
-            $param_names[]= ":{$col->getColumnName()}";
-            $valsArray[":{$col->getColumnName()}"]= $col->getValue(true);
         }
         $insert = implode(", ", $column_names);
         $values = implode(", ", $param_names);
@@ -371,7 +385,7 @@ abstract class DatabaseTable{
      */
     public function delete(){
         global $dbConn;
-        $uniq_id = $this->getUniqueColumnElement();
+        $uniq_id = $this->getUniqueColumn();
         if($uniq_id == NULL){
             throw new Exception("Could not locate a column with the COLUMN_UNIQUE_ID property");
         }
@@ -488,6 +502,129 @@ abstract class DatabaseTable{
         return array();
     }
     
+    /**
+     * Get the count of rows in this table.
+     * @global DatabaseConnector $dbConn
+     * @return int count
+     */
+    public static function Count(){
+        global $dbConn;
+        
+        $class = get_called_class();
+        $obj = new $class();
+        $uniq = $obj->getUniqueColumn();
+        
+        $ret = $dbConn->executeQuery(
+            "
+            SELECT COUNT({$uniq->getColumnName()}) AS total
+            FROM {$obj->getTableName()}
+            "
+        );
+        if(is_array($ret) && count($ret) == 0)
+            return 0;
+        return $ret[0]['total'];
+    }
+    
+    /**
+     * Starts a custom linear query that
+     * can be executed at any time.
+     * @global DatabaseConnector $dbConn
+     * @param type $sql
+     * @param type $params
+     * @return boolean success
+     */
+    public static function StartCustomLinearQuery($sql, $params=array()){
+        global $dbConn;
+        if($dbConn->getIsLinearFetchStarted()){
+            $dbConn->endLinearFetch();
+        }
+        return $dbConn->startLinearFetch($sql, $params);
+    }
+    
+    /**
+     * Start loading all rows in a linear query
+     * @global DatabaseConnector $dbConn
+     * @return boolean success
+     */
+    public static function StartLoadAllRowsLinear(){
+        global $dbConn;
+        $class = get_called_class();
+        $obj = new $class();
+        $column_names = array();
+        foreach($obj->getColumnElements() as $col){
+            $column_names[]= $col->getColumnName();
+        } 
+        $select = implode(', ', $column_names);
+        return DatabaseTable::StartCustomLinearQuery(
+            "
+            SELECT {$select}
+            FROM {$obj->getTableName()}
+            "
+        );
+    }
+    
+    /**
+     * Execute a WHERE query in linear fashion.
+     * @global DatabaseConnector $dbConn
+     * @param string $where where conditions
+     * @param array $params parameters to be bound
+     * @return boolean success
+     */
+    public static function StartLinearWhere($where, $params=array()){
+        global $dbConn;
+        $tmp = get_called_class();
+        $tmp = new $tmp();
+        $db_column_elements = $tmp->getColumnElements();
+        $column_names = array();
+        foreach($db_column_elements as $column){
+            $column_names[]= $column->getColumnName();
+        }
+        $cols = implode(", ", $column_names);
+        return DatabaseTable::StartCustomLinearQuery(
+            "
+            SELECT {$cols}
+            FROM {$tmp->getTableName()}
+            WHERE {$where}
+            ",
+            $params
+        );
+    }
+    
+    /**
+     * End loading all rows in linear fashion.
+     * @global DatabaseConnector $dbConn
+     */
+    public static function EndLinearQuery(){
+        global $dbConn;
+        $dbConn->endLinearFetch();
+    }
+    
+    /**
+     * Get the next row in prepared query.
+     * Used to balance RAM as a substitute for
+     * functions like LoadAllRows().
+     * @global DatabaseConnector $dbConn
+     * @return DatabaseTable response
+     */
+    public static function GetNextRow($load_from_unique_id){
+        global $dbConn;
+        if(!$dbConn->getIsLinearFetchStarted())
+            return NULL;
+        $result = $dbConn->getNextRow();
+        if($result == NULL)
+            return NULL;
+        $class = get_called_class();
+        $tmp = new $class();
+        if($load_from_unique_id){
+            $uniq = $tmp->getUniqueColumn()->getColumnName();
+            $tmp->loadFromUniqueID($result[$uniq]);
+        }
+        else{
+            $tmp->loadFromAssocArray($result);
+        }
+        return $tmp;
+    }
+    
     
     /*=============================================*/
     /*             Overload Functions              */
@@ -499,6 +636,9 @@ abstract class DatabaseTable{
      */
     private function addColumnElementWithColumnElement(DatabaseColumnElement $column){
         $this->columns[$column->getColumnName()] = $column;
+        if($column->getProperties() & DatabaseColumnElement::COLUMN_UNIQUE_ID){
+            $this->setUniqueColumn($column);
+        }
     }
     
     /**
