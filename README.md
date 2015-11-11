@@ -107,13 +107,12 @@ $test = TestTable::Where(
         ":email"    => "example@email.com"
     )
 );
+// returns an array of TestTables where username = "edmiester777" and email = "example@email.com"
 ```
 
 You can also access the count of rows very simply.
 ```php
 $count = TestTable::Count();
-```
-// returns an array of TestTables where username = "edmiester777" and email = "example@email.com"
 ```
 ==============================
 **Accessing Data**
