@@ -107,6 +107,7 @@ $test = TestTable::Where(
         ":email"    => "example@email.com"
     )
 );
+```
 
 You can also access the count of rows very simply.
 ```php
