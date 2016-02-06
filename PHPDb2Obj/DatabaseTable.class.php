@@ -281,39 +281,37 @@ abstract class DatabaseTable{
      */
     public function update(){
         global $dbConn;
-        $uniq_id = NULL;
+        $uniq_id = $this->getUniqueColumn();
         $setStuff = array();
         $valsArray = array();
         foreach($this->columns as $key => $col){
-            if($col->getProperties() & DatabaseColumnElement::COLUMN_UNIQUE_ID){
-                // column is registered as the unique id
-                $uniq_id = $col;
-            }
             if(
-                !($col->getProperties() & DatabaseColumnElement::COLUMN_EXCLUDE_UPDATE)
+                !($col->getProperties() & DatabaseColumnElement::COLUMN_EXCLUDE_UPDATE) &&
+                $col->valueChanged === true // making sure value has been updated.
             ){
                 $setStuff[]= "{$col->getColumnName()} = :{$col->getColumnName()}";
                 $valsArray[":{$col->getColumnName()}"]= $col->getValue(true);
+                $col->valueChanged = false;
             }
         }
         if($uniq_id == NULL){
             throw new Exception("Could not locate a column with the COLUMN_UNIQUE_ID property");
         }
-        if(count($setStuff) == 0){
-            throw new Exception("Nothing to update");
+        if(count($setStuff) > 0){
+            $valsArray[':uniq_oop_registered_id'] = $uniq_id->getValue(true);
+            $setString = implode(", ", $setStuff);
+
+            $ret = $dbConn->executeNonQuery(
+                "
+                UPDATE {$this->getTableName()}
+                SET {$setString}
+                WHERE {$uniq_id->getColumnName()} = :uniq_oop_registered_id
+                ",
+                $valsArray
+            );
+            return $ret;
         }
-        $valsArray[':uniq_oop_registered_id'] = $uniq_id->getValue(true);
-        $setString = implode(", ", $setStuff);
-        
-        $ret = $dbConn->executeNonQuery(
-            "
-            UPDATE {$this->getTableName()}
-            SET {$setString}
-            WHERE {$uniq_id->getColumnName()} = :uniq_oop_registered_id
-            ",
-            $valsArray
-        );
-        return $ret;
+        return true;
     }
     
     /**
@@ -355,7 +353,7 @@ abstract class DatabaseTable{
         $param_names = array();
         $valsArray = array();
         foreach($this->columns as $key => $col){
-            if($col->getValue() != NULL){
+            if($col->getValue() != NULL && !($col->getProperties() & DatabaseColumnElement::COLUMN_UNIQUE_ID)){
                 $column_names[]= $col->getColumnName();
                 $param_names[]= ":{$col->getColumnName()}";
                 $valsArray[":{$col->getColumnName()}"]= $col->getValue(true);
@@ -411,8 +409,8 @@ abstract class DatabaseTable{
      */
     public static function Where($where, $values = array()){
         global $dbConn;
-        $tmp = get_called_class();
-        $tmp = new $tmp();
+        $class = get_called_class();
+        $tmp = new $class();
         $db_column_elements = $tmp->getColumnElements();
         $column_names = array();
         foreach($db_column_elements as $column){
@@ -427,7 +425,6 @@ abstract class DatabaseTable{
             ",
             $values
         );
-        $class = get_called_class();
         $results = array();
         foreach($result as $res){
             $tmp = new $class();
@@ -505,21 +502,23 @@ abstract class DatabaseTable{
     /**
      * Get the count of rows in this table.
      * @global DatabaseConnector $dbConn
+     * @param string $where Optional where clause for refining query
+     * @param array $params Optional parameters to bind to where clause
      * @return int count
      */
-    public static function Count(){
+    public static function Count($where = '', $params = array()){
         global $dbConn;
         
         $class = get_called_class();
-        $obj = new $class();
-        $uniq = $obj->getUniqueColumn();
-        
-        $ret = $dbConn->executeQuery(
-            "
-            SELECT COUNT({$uniq->getColumnName()}) AS total
+        $obj = new $class();   
+        $query = "
+            SELECT COUNT(*) AS total
             FROM {$obj->getTableName()}
-            "
-        );
+            ";
+        if(strlen($where) > 0){
+            $query .= ' WHERE '.$where;
+        }
+        $ret = $dbConn->executeQuery($query, $params);
         if(is_array($ret) && count($ret) == 0)
             return 0;
         return $ret[0]['total'];
@@ -531,14 +530,17 @@ abstract class DatabaseTable{
      * @global DatabaseConnector $dbConn
      * @param type $sql
      * @param type $params
+     * @param $class_name Calling class if other than get_called_class()
      * @return boolean success
      */
-    public static function StartCustomLinearQuery($sql, $params=array()){
+    public static function StartCustomLinearQuery($sql, $params=array(), $class_name = NULL){
         global $dbConn;
-        if($dbConn->getIsLinearFetchStarted()){
-            $dbConn->endLinearFetch();
+        if($class_name === NULL)
+            $class_name = get_called_class();
+        if($dbConn->getIsLinearFetchStarted($class_name)){
+            $dbConn->endLinearFetch(get_called_class());
         }
-        return $dbConn->startLinearFetch($sql, $params);
+        return $dbConn->startLinearFetch($class_name, $sql, $params);
     }
     
     /**
@@ -559,7 +561,9 @@ abstract class DatabaseTable{
             "
             SELECT {$select}
             FROM {$obj->getTableName()}
-            "
+            ",
+            array(),
+            $class
         );
     }
     
@@ -572,8 +576,8 @@ abstract class DatabaseTable{
      */
     public static function StartLinearWhere($where, $params=array()){
         global $dbConn;
-        $tmp = get_called_class();
-        $tmp = new $tmp();
+        $class = get_called_class();
+        $tmp = new $class();
         $db_column_elements = $tmp->getColumnElements();
         $column_names = array();
         foreach($db_column_elements as $column){
@@ -586,7 +590,8 @@ abstract class DatabaseTable{
             FROM {$tmp->getTableName()}
             WHERE {$where}
             ",
-            $params
+            $params,
+            $class
         );
     }
     
@@ -596,7 +601,7 @@ abstract class DatabaseTable{
      */
     public static function EndLinearQuery(){
         global $dbConn;
-        $dbConn->endLinearFetch();
+        $dbConn->endLinearFetch(get_called_class());
     }
     
     /**
@@ -608,12 +613,12 @@ abstract class DatabaseTable{
      */
     public static function GetNextRow($load_from_unique_id){
         global $dbConn;
-        if(!$dbConn->getIsLinearFetchStarted())
+        $class = get_called_class();
+        if(!$dbConn->getIsLinearFetchStarted($class))
             return NULL;
-        $result = $dbConn->getNextRow();
+        $result = $dbConn->getNextRow($class);
         if($result == NULL)
             return NULL;
-        $class = get_called_class();
         $tmp = new $class();
         if($load_from_unique_id){
             $uniq = $tmp->getUniqueColumn()->getColumnName();

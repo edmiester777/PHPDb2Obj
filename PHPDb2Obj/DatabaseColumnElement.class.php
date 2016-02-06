@@ -43,6 +43,8 @@ class DatabaseColumnElement{
     private $relationalClass;
     private $relationColumn;
     
+    public $valueChanged;
+    
     /**
      * Construct a DatabaseColumnElement with a column name and properties
      * @param string $name
@@ -54,6 +56,7 @@ class DatabaseColumnElement{
         $this->setProperties($props);
         $this->setRelation($relation);
         $this->value_needs_set = true;
+        $this->valueChanged = false;
     }
     
     //Getters
@@ -145,6 +148,10 @@ class DatabaseColumnElement{
      * @param bool $ignore_properties Ignore properties and use default set value
      */
     public function setValue($val, $ignore_properties = false){
+        // we can mark this column as changed to ensure proper update.
+        if($val !== $this->getValue()){
+            $this->valueChanged = true;
+        }
         if(
             !$ignore_properties &&
             $this->getProperties() & DatabaseColumnElement::COLUMN_SERIALIZE_VALUE

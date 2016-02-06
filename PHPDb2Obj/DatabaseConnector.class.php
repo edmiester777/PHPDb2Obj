@@ -25,7 +25,7 @@ class DatabaseConnector{
     /** PDO Element for queries */
     private $pdo;
     /** Stores prepared statements */
-    private $prepared;
+    private $prepared = array();
 
     /**
      * Construct a DatabaseConnector with the global setup in config.
@@ -83,45 +83,51 @@ class DatabaseConnector{
     /**
      * Begin the process of fetching mysql rows
      * one by one (if RAM is an issue).
+     * @param string $class_name Calling class. (used to store which prepared statement goes to which class)
      * @param type $sql SQL Statement
      * @param type $params Parameters to be bound
+     * @param string $class_name Calling class. (used to store which prepared statement goes to which class)
      * @return boolean Success
      */
-    public function startLinearFetch($sql, $params=array()){
-        if($this->prepared != NULL)
-            $this->endLinearFetch();
-        if(empty($sql) || !$this->pdo)return false;
-        $this->prepared = $this->pdo->prepare($sql);
+    public function startLinearFetch($class_name, $sql, $params=array()){
+        if($this->prepared[$class_name] != NULL)
+            $this->endLinearFetch($class_name);
+        if(empty($sql) || !$this->pdo)
+            return false;
+        $this->prepared[$class_name] = $this->pdo->prepare($sql);
         foreach($params as $key => &$val){
-            $val == NULL ? $this->prepared->bindParam($key, $val, PDO::PARAM_NULL) : $prepare->bindParam($key, $val);
+            $val == NULL ? $this->prepared[$class_name]->bindParam($key, $val, PDO::PARAM_NULL) : $this->prepared[$class_name]->bindParam($key, $val);
         }
-        return $this->prepared->execute() == 0 ? false : true;
+        return $this->prepared[$class_name]->execute() == 0 ? false : true;
     }
     
     /**
      * End the process of making a linear fetch.
+     * @param string $class_name Calling class. (used to store which prepared statement goes to which class)
      */
-    public function endLinearFetch(){
-        $this->prepared = NULL;
+    public function endLinearFetch($class_name){
+        unset($this->prepared[$class_name]);
     }
     
     /**
      * Check if this database connector has a linear
      * fetch process started.
+     * @param string $class_name Calling class. (used to store which prepared statement goes to which class)
      * @return boolean
      */
-    public function getIsLinearFetchStarted(){
-        return $this->prepared != NULL;
+    public function getIsLinearFetchStarted($class_name){
+        return isset($this->prepared[$class_name]) && $this->prepared[$class_name] != NULL; // making sure that class has a prepared statement.
     }
     
     /**
      * Get the next row in the linear fetch.
+     * @param string $class_name Calling class. (used to store which prepared statement goes to which class)
      * @return array row
      */
-    public function getNextRow(){
-        if($this->prepared == NULL)
+    public function getNextRow($class_name){
+        if($this->prepared[$class_name] == NULL)
             return NULL;
-        return $this->prepared->fetch(PDO::FETCH_ASSOC);
+        return $this->prepared[$class_name]->fetch(PDO::FETCH_ASSOC);
     }
 
     /**
