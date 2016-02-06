@@ -90,7 +90,7 @@ Now we can simply load all rows into a TestTable array.
 ```php
 $tests = TestTable::LoadAllRows();
 ```
-Or we can load our database row by row in order to conserver resources.
+Or we can load our database row by row in order to conserve resources.
 ```php
 TestTable::StartLoadAllRowsLinear();
 while(($test = TestTable::GetNextRow()) != NULL){
